@@ -1,0 +1,15 @@
+[Unit]
+Description=ADR Log monitoring
+After=syslog.target network.target
+
+[Service]
+Nice=5
+Type=simple
+User={{ oracle_db_owner }}
+Group={{ oracle_db_group }}
+Restart=always
+RestartSec=30
+ExecStart=/bin/python3 /home/oracle/bin/adr-log.py
+
+[Install]
+WantedBy=multi-user.target
