@@ -102,7 +102,7 @@ regparse = {
         'crs_network_missing': re.compile(r"Network communication with node (?P<ttargetnode>.+) \(.+ missing for (?P<itimeoutpct>\d+)%"),
         'crs_cvu_setup_error': re.compile(r"CVU found following errors with Clusterware setup : (?P<cvuerror>.+).$"),
         'crs_this_node_evicted': re.compile(r"CRS-1608\:.+evicted by node (?P<ievictedbynum>\d+), (?P<evictedbynode>.+); details"),
-        'crs_other_node_evicted': re.compile(r"CRS-1607\: Node (?P<tevictednode>.+) is being evicted")
+        'crs_other_node_evicted': re.compile(r"CRS-1607\: Node (?P<ttargetnode>.+) is being evicted")
     }
 }
 ############
