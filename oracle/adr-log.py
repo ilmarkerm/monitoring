@@ -81,17 +81,28 @@ openstack_metadata_url = "{{ kc_metadata_url }}"
 # If group name first character is f then it is written as field (and first character stripped), otherwise it is written as tag
 regparse = {
     # First level is comp_id from log record
+    #
+    # Field/tag name is taken from regexp group name. First letter of the group name determins the data type:
+    # t - tag (always string)
+    # i - integer field
+    # f - float field
+    # anything else - string field
     'tnslsnr': {
         # Rule name and the regular expression
-        'tns_service_action': re.compile(r'(?P<action>service_\w+) \* (?P<instance>\w+) \* (?P<returncode>\d+)$'),
-        'tns_short': re.compile(r'\(.+\) \* (?P<event>\w+) \* (?P<returncode>\d+)$'),
-        'tns_error': re.compile(r'^[\w\-:\s]+ \* (?P<tnserror>\d+)$'),
-        'tns_long': re.compile(r'\(.+PROTOCOL=(?P<protocol>\w+).+HOST=(?P<clienthost>[\d\.]+).+\) \* (?P<event>\w+) \* (?P<service>[\w\.]+) \* (?P<returncode>\d+)$')
+        'tns_service_action': re.compile(r'(?P<taction>service_\w+) \* (?P<tinstance>\w+) \* (?P<treturncode>\d+)$'),
+        'tns_short': re.compile(r'\(.+\) \* (?P<tevent>\w+) \* (?P<treturncode>\d+)$'),
+        'tns_error': re.compile(r'^[\w\-:\s]+ \* (?P<ttnserror>\d+)$'),
+        'tns_long': re.compile(r'\(.+PROTOCOL=(?P<tprotocol>\w+).+HOST=(?P<tclienthost>[\d\.]+).+\) \* (?P<tevent>\w+) \* (?P<tservice>[\w\.]+) \* (?P<treturncode>\d+)$')
+    },
+    'rdbms': {
+        'rdbms_ora20': re.compile(r"ORA-00020\:.+\((?P<iprocesslimit>\d+)\)")
     },
     'crs': {
-        'crs_node_down': re.compile("Node down event .+ '(?P<targetnode>.+)'"),
-        'crs_network_missing': re.compile("Network communication with node (?P<targetnode>.+) \(.+ missing for (?P<timeoutinterval>\\d+)%"),
-        'crs_cvu_setup_error': re.compile(r"CVU found following errors with Clusterware setup : (?P<fcvuerror>.+).$")
+        'crs_node_down': re.compile(r"Node down event .+ '(?P<ttargetnode>.+)'"),
+        'crs_network_missing': re.compile(r"Network communication with node (?P<ttargetnode>.+) \(.+ missing for (?P<itimeoutpct>\d+)%"),
+        'crs_cvu_setup_error': re.compile(r"CVU found following errors with Clusterware setup : (?P<cvuerror>.+).$"),
+        'crs_this_node_evicted': re.compile(r"CRS-1608\:.+evicted by node (?P<ievictedbynum>\d+), (?P<evictedbynode>.+); details"),
+        'crs_other_node_evicted': re.compile(r"CRS-1607\: Node (?P<tevictednode>.+) is being evicted")
     }
 }
 ############
@@ -277,13 +288,17 @@ def process_record(data, loginfo):
             for searchkey in regparse[record['tags']['comp_id']]:
                 m = regparse[record['tags']['comp_id']][searchkey].search(record['fields']['txt'])
                 if m:
-                    gt = m.groupdict()
-                    for grouptag in gt:
-                        # If group tag starts with f then write it as field (and strip the first character), otherwise write it as tag
-                        if grouptag.startswith('f'):
-                            record['fields'][grouptag[1:]] = gt[grouptag]
+                    for grouptag, groupval in m.groupdict().items():
+                        # Check how to write the group, as tag or as field
+                        keyname = grouptag[1:]
+                        if grouptag.startswith('t'):
+                            record['tags'][keyname] = groupval
+                        elif grouptag.startswith('i'):
+                            record['fields'][keyname] = int(groupval)
+                        elif grouptag.startswith('f'):
+                            record['fields'][keyname] = float(groupval)
                         else:
-                            record['tags'][grouptag] = gt[grouptag]
+                            record['fields'][grouptag] = groupval
                     record['tags']['rule_match'] = searchkey
                     break
         #
