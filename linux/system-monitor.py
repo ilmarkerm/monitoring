@@ -137,6 +137,11 @@ mon_process = {
         'regexp': re.compile(r'(?P<tunit>[\w\-_]+\.mount)\s+(?P<tload>[a-z]+)\s+(?P<tactive>[a-z]+)\s+(?P<tsub>[a-z]+)\s+(?P<description>.+)'),
         'timeregexp': re.compile(r'^(\d{4}-\d{2}-\d{2}T\d{2}\:\d{2}\:\d{2}\+0000)$'),
         'ignorefirst': False
+    },
+    'host_packages': {
+        'cmd': ['/usr/bin/yum', 'updateinfo'],
+        'regexp': re.compile(r'^\s+(?P<iupdate_count>\d+)\s+(?P<tupdate_classification>.+)'),
+        'ignorefirst': False
     }
 }
 
@@ -332,9 +337,10 @@ if not len(mon_process.keys()):
 
 # Start monitoring programs
 for program in mon_process:
-    log(f"Starting: {' '.join(mon_process[program]['cmd'])}", False)
+    log(f"Starting {program}: {' '.join(mon_process[program]['cmd'])}", False)
     # LC_TIME=en_DK seems to be the only way to get proper ISO formatted timestamps
     mon_process[program]['p'] = subprocess.Popen(args=mon_process[program]['cmd'], bufsize=1, universal_newlines=True, shell=False, stdout=subprocess.PIPE, env={'LC_TIME': 'en_DK','TZ': 'UTC'}, encoding='ascii')
+    mon_process[program]['finished'] = False
 
 # Starting threads (for non-blocking p.stdout.readline() and some programs may output different number of lines per iteration)
 log("Starting output reading threads", False)
@@ -351,6 +357,8 @@ log("Start data gathering", False)
 while True:
     # Read all queued lines from all programs
     for program in mon_process:
+        if mon_process[program]['finished']:
+            continue
         while True:
             try:
                 line = mon_process[program]['q'].get_nowait()
@@ -358,6 +366,25 @@ while True:
                 break
             else:
                 process_line(line, mon_process[program])
+        # Check if program is still alive
+        if mon_process[program]['p'].poll() is not None:
+            mon_process[program]['finished'] = True
+            # Check if program exited prematurely with an error
+            if mon_process[program]['p'].returncode > 0:
+                log(f"{program} has finished with exit code {mon_process[program]['p'].returncode}", False)
+                errtags = common_tags.copy()
+                errtags.update({
+                    'program': program,
+                    'error_type': 'non_zero_exit_code'
+                })
+                state['.queue'].append({
+                    'time': timestamp_ns(datetime.now(tz=timezone.utc)),
+                    'measurement': 'monitoring_error',
+                    'tags': errtags,
+                    'fields': {
+                        'exitcode': mon_process[program]['p'].returncode
+                    }
+                })
     #
     if state['.queue']:
         write_state()
@@ -377,7 +404,7 @@ while True:
 # End monitoring programs if they are still running
 log("Terminating monitoring programs", False)
 for program in mon_process:
-    if mon_process[program]['p'].poll() is None:
+    if not mon_process[program]['finished'] and mon_process[program]['p'].poll() is None:
         mon_process[program]['p'].terminate()
 
 # All done - drop queue if it is too big and write state
