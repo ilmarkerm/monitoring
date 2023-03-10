@@ -96,6 +96,7 @@ regparse = {
     },
     'rdbms': {
         'rdbms_ora20': re.compile(r"ORA-00020\:.+\((?P<iprocesslimit>\d+)\)"),
+        'rdbms_fra_full': re.compile(r"ORA-19809\:"),
         'rdbms_terminating_hung': re.compile(r"Terminating process hung on an operation"),
         'rdbms_hung_io': re.compile(r"Process .+ hung on an I/O after"),
         'rdbms_ora1555': re.compile(r"ORA-01555.+SQL ID: (?P<sqlid>[a-z0-9]+).+Query Duration=(?P<iduration>[a-z0-9]+) sec")
