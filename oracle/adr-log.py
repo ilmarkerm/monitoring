@@ -99,6 +99,10 @@ regparse = {
         'rdbms_fra_full': re.compile(r"ORA-19809\:"),
         'rdbms_terminating_hung': re.compile(r"Terminating process hung on an operation"),
         'rdbms_hung_io': re.compile(r"Process .+ hung on an I/O after"),
+        'rdbms_swapping': re.compile(r"Heavy swapping observed on system"),
+        'rdbms_primary_isolated': re.compile(r"ORA-16830\:"),
+        'rdbms_lost_write': re.compile(r"ORA-00742\:"),
+        'rdbms_user_failover': re.compile(r"A user-configurable Fast-Start Failover condition was detected\. The primary is shutting down due to (?P<reason>.+)\."),
         'rdbms_ora1555': re.compile(r"ORA-01555.+SQL ID: (?P<sqlid>[a-z0-9]+).+Query Duration=(?P<iduration>[a-z0-9]+) sec")
     },
     'crs': {
